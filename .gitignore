@@ -6,3 +6,4 @@ examples/websocket.rs
 generated
 bin/data/
 bin/scripts/
+out
