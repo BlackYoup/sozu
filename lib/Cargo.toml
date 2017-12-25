@@ -58,3 +58,7 @@ travis-ci = { repository = "sozu-proxy/sozu" }
 [[bin]]
 name = "cookies-fuzzing"
 path = "fuzzing/parsers/cookies/cookies.rs"
+
+[[bin]]
+name = "remove_sticky_cookie_in_request_fuzzing"
+path = "fuzzing/parsers/http11/remove_sticky_cookie_in_request/remove_sticky_cookie_in_request_fuzzing.rs"
