@@ -124,7 +124,7 @@ fn main() {
     info!("starting up");
 
     if let Some(ref metrics) = config.metrics.as_ref() {
-      metrics_set_up!(&metrics.address[..], metrics.port);
+      metrics_set_up!(&metrics.address[..], metrics.port, String::from("master"));
     }
 
 

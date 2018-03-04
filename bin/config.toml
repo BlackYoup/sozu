@@ -11,7 +11,7 @@ saved_state = "./state.json"
 # "trace". For performance reasons, the logs at "debug" or "trace" level are
 # not compiled by default. To activate them, pass the "logs-debug" and
 # "logs-trace" compilation options to cargo
-log_level = "info"
+log_level = "trace"
 
 # where the logs will be sent. It defaults to sending the logs on standard output,
 # but they could be written to a UDP address:
@@ -35,7 +35,7 @@ command_buffer_size = 16384
 max_command_buffer_size = 163840
 
 # the number of worker processes that will handle traffic
-worker_count = 2
+worker_count = 6
 # indicates if worker process will be pinned on a core. If you activate this, be sure
 # that you do not have more workers than CPU cores (and leave at least one core for
 # the kernel and the master process)
@@ -66,9 +66,9 @@ buffer_size = 16384
 # You can see those statistics with sozuctl, like this: `sozuctl metrics` or
 # `sozuctl metrics --json` for machine consumption
 #
-#[metrics]
-# address = "127.0.0.1"
-# port = 8080
+[metrics]
+ address = "127.0.0.1"
+ port = 8125
 
 # options specific to the HTTP (plaintext) proxy
 [http]

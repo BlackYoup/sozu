@@ -62,6 +62,7 @@ pub struct ProxyMetrics {
   pub request_counter: TimeSerie,
   pub is_writable: bool,
   remote:          Option<(SocketAddr, UdpSocket)>,
+  worker_id:       Option<String>
 }
 
 impl ProxyMetrics {
@@ -76,11 +77,16 @@ impl ProxyMetrics {
       request_counter: TimeSerie::new(),
       remote:      None,
       is_writable: false,
+      worker_id:   None
     }
   }
 
   pub fn set_up_remote(&mut self, socket: UdpSocket, addr: SocketAddr) {
     self.remote = Some((addr, socket));
+  }
+
+  pub fn set_worker_id(&mut self, id: String) {
+    self.worker_id = Some(id);
   }
 
   pub fn socket(&self) -> Option<&UdpSocket> {
@@ -252,25 +258,28 @@ impl ProxyMetrics {
   pub fn fill_buffer(&mut self) {
     let now  = Instant::now();
     let secs = Duration::new(2, 0);
+    let worker_id = self.worker_id.clone().unwrap_or(String::from(""));
 
     if now.duration_since(self.request_counter.sent_at) > secs {
-      if self.buffer.write_fmt(format_args!("{}.{}:{}|g\n", self.prefix, "requests", self.request_counter.last_sent)).is_ok() {
+      let key = format!("requests.worker-{}", worker_id);
+      if self.buffer.write_fmt(format_args!("{}.{}:{}|g\n", self.prefix, key, self.request_counter.last_sent)).is_ok() {
         self.request_counter.update_sent_at(now);
       }
     }
 
     for (ref key, ref mut stored_metric) in self.data.iter_mut().filter(|&(_, ref value)| now.duration_since(value.last_sent) > secs) {
       //info!("will write {} -> {:#?}", key, stored_metric);
+      let metric_key = format!("{}.worker-{}", key, worker_id);
       match stored_metric.data {
         MetricData::Gauge(value) => {
-          if self.buffer.write_fmt(format_args!("{}.{}:{}|g\n", self.prefix, key, value)).is_ok() {
+          if self.buffer.write_fmt(format_args!("{}.{}:{}|g\n", self.prefix, metric_key, value)).is_ok() {
             stored_metric.last_sent = now;
           } else {
             break;
           }
         },
         MetricData::Count(value) => {
-          if self.buffer.write_fmt(format_args!("{}.{}:{}|g\n", self.prefix, key, value)).is_ok() {
+          if self.buffer.write_fmt(format_args!("{}.{}:{}|g\n", self.prefix, metric_key, value)).is_ok() {
             stored_metric.last_sent = now;
           } else {
             break;
@@ -279,7 +288,7 @@ impl ProxyMetrics {
         MetricData::Time(begin, Some(end)) => {
           let duration = end.duration_since(begin);
           let millis = duration.as_secs() * 1000 + (duration.subsec_nanos() / 1000000) as u64;
-          if self.buffer.write_fmt(format_args!("{}.{}:{}|ms\n", self.prefix, key, millis)).is_ok() {
+          if self.buffer.write_fmt(format_args!("{}.{}:{}|ms\n", self.prefix, metric_key, millis)).is_ok() {
             //info!("wrote time to buffer:\n{}", str::from_utf8(self.buffer.data()).unwrap());
             stored_metric.last_sent = now;
           } else {
@@ -361,13 +370,14 @@ pub fn udp_bind() -> UdpSocket {
 
 #[macro_export]
 macro_rules! metrics_set_up (
-  ($host:expr, $port: expr) => {
+  ($host:expr, $port: expr, $id: expr) => {
     let metrics_socket = $crate::network::metrics::udp_bind();
 
     debug!("setting up metrics: local address = {:#?}", metrics_socket.local_addr());
     let metrics_host   = ($host, $port).to_socket_addrs().expect("could not parse address").next().expect("could not get first address");
     $crate::network::metrics::METRICS.with(|metrics| {
       (*metrics.borrow_mut()).set_up_remote(metrics_socket, metrics_host);
+      (*metrics.borrow_mut()).set_worker_id($id);
     });
   }
 );
