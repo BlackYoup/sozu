@@ -31,8 +31,9 @@ impl BackendMap {
     }));
   }
 
-  pub fn add_backend(&mut self, app_id: &str, backend_id: &str, backend_address: &SocketAddr, sticky_id: Option<String>, load_balancing_parameters: Option<LoadBalancingParams>) {
-    self.backends.entry(app_id.to_string()).or_insert(BackendList::new()).add_backend(backend_id, backend_address, sticky_id, load_balancing_parameters);
+  pub fn add_backend(&mut self, app_id: &str, backend_id: &str, backend_address: &SocketAddr, sticky_id: Option<String>,
+    load_balancing_parameters: Option<LoadBalancingParams>, backup: Option<bool>) {
+    self.backends.entry(app_id.to_string()).or_insert(BackendList::new()).add_backend(backend_id, backend_address, sticky_id, load_balancing_parameters, backup);
   }
 
   pub fn remove_backend(&mut self, app_id: &str, backend_address: &SocketAddr) {
@@ -162,16 +163,16 @@ impl BackendList {
       let addr_string = backend.ip_address.to_string() + ":" + &backend.port.to_string();
       let parsed:Option<SocketAddr> = addr_string.parse().ok();
       if let Some(addr) = parsed {
-        list.add_backend(&backend.backend_id, &addr, backend.sticky_id.clone(), backend.load_balancing_parameters.clone());
+        list.add_backend(&backend.backend_id, &addr, backend.sticky_id.clone(), backend.load_balancing_parameters.clone(), backend.backup);
       }
     }
 
     list
   }
 
-  pub fn add_backend(&mut self, backend_id: &str, backend_address: &SocketAddr, sticky_id: Option<String>, load_balancing_parameters: Option<LoadBalancingParams>) {
+  pub fn add_backend(&mut self, backend_id: &str, backend_address: &SocketAddr, sticky_id: Option<String>, load_balancing_parameters: Option<LoadBalancingParams>, backup: Option<bool>) {
     if self.backends.iter().find(|b| &(*b.borrow()).address == backend_address).is_none() {
-      let backend = Rc::new(RefCell::new(Backend::new(backend_id, *backend_address, sticky_id, load_balancing_parameters)));
+      let backend = Rc::new(RefCell::new(Backend::new(backend_id, *backend_address, sticky_id, load_balancing_parameters, backup)));
       self.backends.push(backend);
       self.next_id += 1;
     }
@@ -201,15 +202,19 @@ impl BackendList {
       })
   }
 
-  pub fn available_backends(&mut self) -> Vec<Rc<RefCell<Backend>>> {
+  pub fn available_backends(&mut self, backup: bool) -> Vec<Rc<RefCell<Backend>>> {
     self.backends.iter()
-      .filter(|backend| (*backend.borrow()).can_open())
+      .filter(|backend| (*backend.borrow()).backup == backup && (*backend.borrow()).can_open())
       .map(|backend| (*backend).clone())
       .collect()
   }
 
   pub fn next_available_backend(&mut self) -> Option<Rc<RefCell<Backend>>> {
-    let backends = self.available_backends();
+    let mut backends = self.available_backends(false);
+
+    if backends.len() == 0 {
+      backends = self.available_backends(true);
+    }
 
     if backends.len() == 0 {
       None

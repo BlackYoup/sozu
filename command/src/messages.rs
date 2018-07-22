@@ -280,6 +280,7 @@ pub struct Backend {
     #[serde(default)]
     #[serde(skip_serializing_if="Option::is_none")]
     pub load_balancing_parameters: Option<LoadBalancingParams>,
+    pub backup: Option<bool>,
 }
 
 #[derive(Debug,Clone,PartialEq,Eq,Hash, Serialize, Deserialize)]

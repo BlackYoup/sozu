@@ -746,9 +746,10 @@ impl ServerConfiguration {
   }
 
   pub fn add_backend(&mut self, app_id: &str, backend_id: &str, backend_address: &SocketAddr,
-    sticky_id: Option<String>, load_balancing_parameters: Option<LoadBalancingParams>, event_loop: &mut Poll) -> Option<ListenToken> {
+    sticky_id: Option<String>, load_balancing_parameters: Option<LoadBalancingParams>, backup: Option<bool>,
+    event_loop: &mut Poll) -> Option<ListenToken> {
     use std::borrow::BorrowMut;
-    self.backends.add_backend(app_id, backend_id, backend_address, sticky_id, load_balancing_parameters);
+    self.backends.add_backend(app_id, backend_id, backend_address, sticky_id, load_balancing_parameters, backup);
 
     let opt_tok = self.fronts.get(app_id).clone();
     if let Some(tok) = opt_tok {
@@ -870,7 +871,7 @@ impl ProxyConfiguration<Client> for ServerConfiguration {
       Order::AddBackend(backend) => {
         let addr_string = backend.ip_address + ":" + &backend.port.to_string();
         let addr = &addr_string.parse().unwrap();
-        if let Some(token) = self.add_backend(&backend.app_id, &backend.backend_id, addr, backend.sticky_id.clone(), backend.load_balancing_parameters, event_loop) {
+        if let Some(token) = self.add_backend(&backend.app_id, &backend.backend_id, addr, backend.sticky_id.clone(), backend.load_balancing_parameters, backend.backup, event_loop) {
           OrderMessageAnswer{ id: message.id, status: OrderMessageStatus::Ok, data: None}
         } else {
           OrderMessageAnswer{ id: message.id, status: OrderMessageStatus::Error(String::from("cannot add tcp backend")), data: None}
